@@ -1,0 +1,10 @@
+# Find commits which changed flake.lock
+git log --format=%H -- flake.lock
+
+# Cleanup store
+readback sudo nix-collect-garbage -d
+readback sudo nix-store --optimise
+
+# Try to build current config
+flake=".#nixosConfigurations.$(hostname).config.system.build.toplevel"
+nix build --no-link $flake
