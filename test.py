@@ -51,7 +51,9 @@ class PrivilegedShell():
                 stdout_culm += stdout_chunk
                 if "DONE:" in stdout_chunk:
                     break
-            asyncio.sleep(0.01)
+            # FIXME stderr can drop lines when this is uncommented because it's not synchronised with stdout
+            # probably the best fix to to modify `cmd` to emit DONE on both stderr and stdout to signal the end of a command
+            #await asyncio.sleep(0.01)
 
         stdout_culm = stdout_culm.split('\n')[:-1]
         stderr_culm = stderr_culm.split('\n')[:-1]
