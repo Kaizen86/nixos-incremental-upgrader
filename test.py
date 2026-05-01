@@ -10,23 +10,15 @@ def Popen_piped(cmd: list):
         stderr=subprocess.PIPE,
         bufsize=0)
 
-"""
-acquire = Popen_piped(["sudo","whoami"])
-out, _ = acquire.communicate() # Let user enter the password
-out = out.strip()
-if out != b'root':
-    print("Failed to acquire root shell")
-    exit(1)
-del acquire, out
+with Popen_piped(["sudo", "whoami"]) as acquire:
+    out, _ = acquire.communicate() # Let user enter the password
+    if out.strip() != b'root':
+        print("Failed to acquire root shell")
+        exit(1)
 
 # At this point, sudo should cache the password
-priv = Popen_piped(["sudo","bash"])
-# Disable blocking (UNIX only)
-os.set_blocking(priv.stdout.fileno(), False)
-os.set_blocking(priv.stderr.fileno(), False)
-"""
-
-priv = Popen_piped(["bash"])
+priv = Popen_piped(["sudo", "bash"])
+# Set up a way to check if the output streams have data
 priv_stdout_sel = selectors.DefaultSelector()
 priv_stdout_sel.register(priv.stdout, selectors.EVENT_READ)
 priv_stderr_sel = selectors.DefaultSelector()
