@@ -26,7 +26,7 @@ priv_stderr_sel.register(priv.stderr, selectors.EVENT_READ)
 
 def priv_run(*cmds: list) -> tuple:
     cmd = ' && '.join(cmds)
-    cmd = f"({cmd}); echo DONE:$?\n"
+    cmd = f"(true;{cmd}); echo DONE:$?\n"
     priv.stdin.write(cmd.encode('utf-8'))
 
     stdout_culm = stderr_culm = ""
@@ -52,6 +52,7 @@ def priv_run(*cmds: list) -> tuple:
     return int(exit_code), stdout_culm, stderr_culm
 
 print(priv_run("whoami"))
+print(priv_run(""))
 
 # Must make sure to close the subshell!
 priv.terminate()
