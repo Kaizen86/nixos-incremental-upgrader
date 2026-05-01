@@ -28,21 +28,28 @@ def priv_run(*cmds: list) -> tuple:
     cmd = ' && '.join(cmds)
     cmd = f"({cmd}); echo DONE:$?\n"
     priv.stdin.write(cmd.encode('utf-8'))
-    stdout_culm = stderr_culm = ""
 
+    stdout_culm = stderr_culm = ""
     while True:
         if priv_stderr_sel.select(timeout=0):
-            stderr = priv.stderr.readline().decode()
-            stderr_culm += stderr
+            stderr_chunk = priv.stderr.readline().decode()
+            stderr_culm += stderr_chunk
 
         if priv_stdout_sel.select(timeout=0):
-            stdout = priv.stdout.readline().decode()
-            stdout_culm += stdout
-            if "DONE" in stdout:
+            stdout_chunk = priv.stdout.readline().decode()
+            stdout_culm += stdout_chunk
+            if "DONE:" in stdout_chunk:
                 break
         time.sleep(0.01)
 
-    return stdout_culm, stderr_culm
+    stdout_culm = stdout_culm.split('\n')[:-1]
+    stderr_culm = stderr_culm.split('\n')[:-1]
+
+    # Extract exit code
+    *stdout_culm, exit_line = stdout_culm
+    exit_code = exit_line.removeprefix('DONE:')
+
+    return int(exit_code), stdout_culm, stderr_culm
 
 print(priv_run("whoami"))
 
