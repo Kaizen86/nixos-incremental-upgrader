@@ -46,7 +46,7 @@ class PrivilegedShell():
                     yield None
 
                 line = stream.readline().decode()
-                lines.append(line.strip())
+                lines.append(line.strip('\n'))
 
                 if "DONE" in line:
                     yield lines
