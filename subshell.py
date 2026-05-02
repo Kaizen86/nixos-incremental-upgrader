@@ -10,28 +10,25 @@ def Popen_piped(cmd: list):
         stderr=subprocess.PIPE,
         bufsize=0)
 
-class PrivilegedShell():
-    def __init__(self):
+
+class Shell():
+    def __init__(self, shell="bash", pollrate=0.1):
+        self.shell = shell
+        self.pollrate = pollrate
         self._acquired = False
 
     async def acquire(self):
-        """Requests root shell access from the user via sudo.
-        This must be called before any commands can be run, and is dependent on the user granting sudo permission.
+        """Opens the subshell.
+        This must be called before any commands can be run.
         Returns True when successful."""
-        with Popen_piped(["sudo", "whoami"]) as acquire:
-            out, _ = acquire.communicate() # Let user enter the password
-            if out.strip() != b'root':
-                return False
-
-        # At this point, sudo should cache the password
-        self._proc = proc = Popen_piped(["sudo", "bash"])
+        self._proc = proc = Popen_piped([self.shell])
         self._acquired = True
 
         code, *_ = await self.run("whoami")
         return code == 0
 
     async def run(self, *cmds: list) -> tuple:
-        """Executes one or more shell commands as root.
+        """Executes one or more shell commands.
         Permission must first be sought using .acquire()
 
         Important note: it is the caller's responsibility to escape commands, otherwise the underlying shell may get stuck waiting for extra input.
@@ -46,7 +43,7 @@ class PrivilegedShell():
         If your commands should be run in parallel, consider creating multiple privileged shells.
         """
         if not self._acquired:
-            raise Exception("Root shell not acquired")
+            raise Exception("Shell not acquired")
 
         # Grade-A jank ahead!!
 
@@ -104,6 +101,28 @@ class PrivilegedShell():
         # Must make sure to close the subshell!
         self._proc.terminate()
         self._proc.wait()
+
+
+class PrivilegedShell(Shell):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    async def acquire(self):
+        """Requests root shell access from the user via sudo.
+        This must be called before any commands can be run, and is dependent on the user granting sudo permission.
+        Returns True when successful."""
+        with Popen_piped(["sudo", "whoami"]) as acquire:
+            out, _ = acquire.communicate() # Let user enter the password
+            if out.strip() != b'root':
+                return False
+
+        # At this point, sudo should cache the password
+        self._proc = proc = Popen_piped(["sudo", self.shell])
+        self._acquired = True
+
+        code, *_ = await self.run("whoami")
+        return code == 0
+
 
 async def example():
     priv = PrivilegedShell()

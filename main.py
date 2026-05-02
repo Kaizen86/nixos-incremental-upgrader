@@ -1,8 +1,8 @@
 import asyncio
-import root_subshell
+import subshell
 
-async def main():
-    priv = root_subshell.PrivilegedShell()
+async def root_test():
+    priv = subshell.PrivilegedShell()
 
     print("About to request sudo permission for a root bash subshell.")
     print("This will be used to autonomously run `nixos-rebuild` and store cleanup commands.")
@@ -18,7 +18,14 @@ async def main():
     time.sleep(3)
     print("jk lol")
 
+async def test():
+    shell = subshell.Shell()
+    if not await shell.acquire():
+        print("Could not open subshell; aborting")
+        exit(1)
+
+    print(await shell.run("whoami"))
 
 # Start event loop
-asyncio.run(main())
+asyncio.run(test())
 
