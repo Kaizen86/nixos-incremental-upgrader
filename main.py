@@ -24,7 +24,11 @@ async def test():
         print("Could not open subshell; aborting")
         exit(1)
 
-    print(await shell.run("whoami"))
+    job = asyncio.create_task(shell.run("sleep 5"))
+    while not job.done():
+        print('.', end='', flush=True)
+        await asyncio.sleep(0.3)
+
 
 # Start event loop
 asyncio.run(test())
