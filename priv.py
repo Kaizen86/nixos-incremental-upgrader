@@ -52,26 +52,29 @@ class PrivilegedShell():
                     yield lines
                     return
 
-        stdout = stream_reader(self._proc.stdout)
-        stdout_culm = None
-        stderr = stream_reader(self._proc.stderr)
-        stderr_culm = None
+        # Create stream readers
+        stdout_reader = stream_reader(self._proc.stdout)
+        stderr_reader = stream_reader(self._proc.stderr)
+        # Try reading command output
+        stdout = next(stdout_reader)
+        stderr = next(stderr_reader)
 
-        while stdout_culm == None or stderr_culm == None:
-            if stdout_culm == None:
-                stdout_culm = next(stdout)
-
-            if stderr_culm == None:
-                stderr_culm = next(stderr)
-
+        # Keep reading until both streams are done
+        while stdout == None or stderr == None:
             await asyncio.sleep(0.01)
 
-        # Tidy up and extract exit code
-        *stdout_culm, stdout_exit = stdout_culm
-        exit_code = stdout_exit.removeprefix('DONE:')
-        *stderr_culm, _ = stderr_culm
+            if stdout == None:
+                stdout = next(stdout_reader)
 
-        return int(exit_code), stdout_culm, stderr_culm
+            if stderr == None:
+                stderr = next(stderr_reader)
+
+        # Tidy up and extract exit code
+        *stdout, stdout_exit = stdout
+        exit_code = stdout_exit.removeprefix('DONE:')
+        *stderr, _ = stderr
+
+        return int(exit_code), stdout, stderr
 
     def __del__(self):
         if not self._acquired:
