@@ -34,6 +34,9 @@ class PrivilegedShell():
         """Executes one or more shell commands as root.
         Permission must first be sought using .acquire()
 
+        Important note: it is the caller's responsibility to escape commands, otherwise the underlying shell may get stuck waiting for extra input.
+        For example: `echo '` should be escaped as: `"echo \\'"` or `r"echo \'"`
+
         If they should be chained, provide them as separate arguments.
         For instance, `await shell.run("mkdir foo", "touch foo/a")` is equivalent to `mkdir foo && touch foo/a`
 
@@ -44,6 +47,8 @@ class PrivilegedShell():
         """
         if not self._acquired:
             raise Exception("Root shell not acquired")
+
+        # Grade-A jank ahead!!
 
         cmd = ' && '.join(cmds)
         cmd = f"(true;{cmd}); echo DONE:$?; echo DONE >&2\n"
@@ -103,9 +108,21 @@ async def example():
         print("Failed to acquire root shell")
         exit(1)
 
-    print(await priv.run("whoami"))
-    print(await priv.run("nixos-rebuild switch"))
+    # Prove that `whoami` will return 'root' in stdout
+    assert (await priv.run("whoami")) == (0, ['root'], [])
 
+    # Chained command examples
+    assert (await priv.run("echo a", "echo b")) == (0, ['a','b'], [])
+    # Note: always take care to escape strings!
+    assert (await priv.run("false", r"echo This won\'t run")) == (1, [], [])
+
+    # Example of how to catch errors
+    exit_code, stdout, stderr = await priv.run("bad-command")
+    if exit_code != 0:
+        print("Example error catching:")
+        print('\n'.join(stderr))
+    else:
+        print("Command okay(?!)")
 
 if __name__ == "__main__":
     asyncio.run(example())
