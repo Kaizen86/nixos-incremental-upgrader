@@ -15,6 +15,9 @@ class PrivilegedShell():
         self._acquired = False
 
     async def acquire(self):
+        """Requests root shell access from the user via sudo.
+        This must be called before any commands can be run, and is dependent on the user granting sudo permission.
+        Returns True when successful."""
         with Popen_piped(["sudo", "whoami"]) as acquire:
             out, _ = acquire.communicate() # Let user enter the password
             if out.strip() != b'root':
@@ -28,8 +31,19 @@ class PrivilegedShell():
         return code == 0
 
     async def run(self, *cmds: list) -> tuple:
+        """Executes one or more shell commands as root.
+        Permission must first be sought using .acquire()
+
+        If they should be chained, provide them as separate arguments.
+        For instance, `await shell.run("mkdir foo", "touch foo/a")` is equivalent to `mkdir foo && touch foo/a`
+
+        If the commands are not dependent on each other, they should be run separately to avoid collateral damage.
+        For instance, `await shell.run("touch a"); await shell.run("touch b")` is equivalent to `touch a; touch b`
+
+        If your commands should be run in parallel, consider creating multiple privileged shells.
+        """
         if not self._acquired:
-            raise Exception("Not acquired")
+            raise Exception("Root shell not acquired")
 
         cmd = ' && '.join(cmds)
         cmd = f"(true;{cmd}); echo DONE:$?; echo DONE >&2\n"
