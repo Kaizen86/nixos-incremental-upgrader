@@ -1,16 +1,23 @@
-import subprocess
-import os
+import asyncio
+import root_subshell
 
-password = (input("sudo password:")+'\n').encode('utf8')
+async def main():
+    priv = root_subshell.PrivilegedShell()
 
-env = os.environ.copy()
-env['SUDO_ASKPASS'] = 'cat'
-priv = subprocess.Popen(["sudo","-A","bash"],
-    env=env,
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE)
+    print("About to request sudo permission for a root bash subshell.")
+    print("This will be used to autonomously run `nixos-rebuild` and store cleanup commands.")
+    if not await priv.acquire():
+        print("Permission denied; aborting")
+        exit(1)
+
+    # lol, prank 'em john
+    print("Yippee! deleting your system :)")
+    print("rm -rf /")
+    import time
+    time.sleep(3)
+    print("jk lol")
 
 
-out, err = priv.communicate(input=password)
-print(out, err)
+# Start event loop
+asyncio.run(main())
+
