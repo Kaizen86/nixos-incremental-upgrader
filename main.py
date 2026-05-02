@@ -6,6 +6,7 @@ async def main():
 
     print("About to request sudo permission for a root bash subshell.")
     print("This will be used to autonomously run `nixos-rebuild` and store cleanup commands.")
+    #print("Alternatively, if you'd prefer to run these manually, then deny access.") # TODO future feature?
     if not await priv.acquire():
         print("Permission denied; aborting")
         exit(1)

@@ -95,6 +95,9 @@ class PrivilegedShell():
 
         return int(exit_code), stdout, stderr
 
+    def __bool__(self):
+        return self._acquired
+
     def __del__(self):
         if not self._acquired:
             return
