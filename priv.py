@@ -23,11 +23,6 @@ class PrivilegedShell():
         # At this point, sudo should cache the password
         self._proc = proc = Popen_piped(["sudo", "bash"])
         self._acquired = True
-        # Set up a way to check if the output streams have data
-        self._stdout_sel = selectors.DefaultSelector()
-        self._stdout_sel.register(proc.stdout, selectors.EVENT_READ)
-        self._stderr_sel = selectors.DefaultSelector()
-        self._stderr_sel.register(proc.stderr, selectors.EVENT_READ)
 
         code, *_ = await self.run("whoami")
         return code == 0
@@ -37,30 +32,44 @@ class PrivilegedShell():
             raise Exception("Not acquired")
 
         cmd = ' && '.join(cmds)
-        cmd = f"(true;{cmd}); echo DONE:$?\n"
+        cmd = f"(true;{cmd}); echo DONE:$?; echo DONE >&2\n"
         self._proc.stdin.write(cmd.encode('utf-8'))
 
-        stdout_culm = stderr_culm = ""
-        while True:
-            if self._stderr_sel.select(timeout=0):
-                stderr_chunk = self._proc.stderr.readline().decode()
-                stderr_culm += stderr_chunk
+        def stream_reader(stream):
+            lines = list()
+            # Set up a way to check if the stream has data
+            sel = selectors.DefaultSelector()
+            sel.register(stream, selectors.EVENT_READ)
 
-            if self._stdout_sel.select(timeout=0):
-                stdout_chunk = self._proc.stdout.readline().decode()
-                stdout_culm += stdout_chunk
-                if "DONE:" in stdout_chunk:
-                    break
-            # FIXME stderr can drop lines when this is uncommented because it's not synchronised with stdout
-            # probably the best fix to to modify `cmd` to emit DONE on both stderr and stdout to signal the end of a command
-            #await asyncio.sleep(0.01)
+            while True:
+                if not sel.select(timeout=0):
+                    yield None
 
-        stdout_culm = stdout_culm.split('\n')[:-1]
-        stderr_culm = stderr_culm.split('\n')[:-1]
+                line = stream.readline().decode()
+                lines.append(line.strip())
 
-        # Extract exit code
-        *stdout_culm, exit_line = stdout_culm
-        exit_code = exit_line.removeprefix('DONE:')
+                if "DONE" in line:
+                    yield lines
+                    return
+
+        stdout = stream_reader(self._proc.stdout)
+        stdout_culm = None
+        stderr = stream_reader(self._proc.stderr)
+        stderr_culm = None
+
+        while stdout_culm == None or stderr_culm == None:
+            if stdout_culm == None:
+                stdout_culm = next(stdout)
+
+            if stderr_culm == None:
+                stderr_culm = next(stderr)
+
+            await asyncio.sleep(0.01)
+
+        # Tidy up and extract exit code
+        *stdout_culm, stdout_exit = stdout_culm
+        exit_code = stdout_exit.removeprefix('DONE:')
+        *stderr_culm, _ = stderr_culm
 
         return int(exit_code), stdout_culm, stderr_culm
 
